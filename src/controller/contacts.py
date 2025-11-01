@@ -3,32 +3,32 @@ from database import get_connection
 
 contacts_bp = Blueprint('contacts', __name__)
 
-# 获取所有联系人
 @contacts_bp.route('', methods=['GET'])
 def get_contacts():
+    search = request.args.get('search', '').strip()
     conn = get_connection()
     c = conn.cursor()
-    c.execute("SELECT id, name, phone, email FROM contacts")
+    if search:
+        c.execute("SELECT id, name, phone FROM contacts WHERE name LIKE ? OR phone LIKE ?",
+                  (f'%{search}%', f'%{search}%'))
+    else:
+        c.execute("SELECT id, name, phone FROM contacts")
     rows = c.fetchall()
     conn.close()
-    contacts = [dict(row) for row in rows]
-    return jsonify(contacts)
+    return jsonify([dict(row) for row in rows])
 
-# 添加联系人
 @contacts_bp.route('', methods=['POST'])
 def add_contact():
     data = request.json
     name = data.get("name")
     phone = data.get("phone")
-    email = data.get("email", "")
     conn = get_connection()
     c = conn.cursor()
-    c.execute("INSERT INTO contacts (name, phone, email) VALUES (?, ?, ?)", (name, phone, email))
+    c.execute("INSERT INTO contacts (name, phone) VALUES (?, ?)", (name, phone))
     conn.commit()
     conn.close()
     return jsonify({"message": "联系人已添加"}), 201
 
-# 删除联系人
 @contacts_bp.route('/<int:contact_id>', methods=['DELETE'])
 def delete_contact(contact_id):
     conn = get_connection()
@@ -38,7 +38,6 @@ def delete_contact(contact_id):
     conn.close()
     return jsonify({"message": "联系人已删除"}), 200
 
-# 修改联系人
 @contacts_bp.route('/<int:contact_id>', methods=['PUT'])
 def update_contact(contact_id):
     data = request.json
